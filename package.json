@@ -1,0 +1,25 @@
+{
+  "name": "gradient-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite build --watch\" \"webflow extension serve\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.1",
+    "@webflow/designer-extension-typings": "^0.2.0-beta.14",
+    "@webflow/webflow-cli": "^1.6.12",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.0",
+    "postcss": "^8.4.45",
+    "svelte": "^4.2.18",
+    "tailwindcss": "^3.4.10",
+    "vite": "^5.4.1"
+  },
+  "dependencies": {
+    "@svelte-plugins/tooltips": "^3.0.1"
+  }
+}
