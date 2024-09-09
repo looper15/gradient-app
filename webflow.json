@@ -2,5 +2,7 @@
     "name": "Gradient App",
     "description": "A simple app to generate gradients",
     "version": "1.0.0",
+    "size": "height: 420, width: 350",
     "publicDir": "dist"
+
 }
