@@ -20,8 +20,7 @@
     save: () => Promise<void>;
   }
 
-  const NEW_SIZE = "comfortable";
-  const DONE_MESSAGE_TIMEOUT = 3000;
+  const DONE_MESSAGE_TIMEOUT = 10000;
   const API_TIMEOUT = 10000; // 10 seconds timeout for API calls
 
   let gradientCss = "";
@@ -43,10 +42,6 @@
     if (messageTimeout) clearTimeout(messageTimeout);
     showButtonMessage = true;
     buttonMessage = message;
-
-    messageTimeout = window.setTimeout(() => {
-      showButtonMessage = false;
-    }, 3000);
   }
 
   function clearButtonMessage() {
@@ -93,29 +88,25 @@
   }
 
   async function CreateNewElementWithGradient() {
-    selectedElement = await handleSubmit();
-    if (!selectedElement) return;
-
-    if (selectedElement?.styles) {
-      try {
-        // Insert a new div after the selected element
-        const newElement = webflow.createDOM("div");
-        //newElement.setStyles("background-image", gradientCss)
-        
-        selectedElement.setChildren([newElement]);
-
-        await selectedElement.save();
-        appState = AppState.DONE;
-        setTimeout(() => {
-          appState = AppState.MAIN;
-        }, DONE_MESSAGE_TIMEOUT);
-      } catch (error) {
-        appState = AppState.ERROR;
-        errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to create new element with gradient.";
+    try {
+      const currentElement = await webflow.getSelectedElement();
+      if (!currentElement) {
+        throw new Error("Please select an element first.");
       }
+
+      const newElement = await currentElement.after(
+        webflow.elementPresets.DivBlock,
+      );
+      await webflow.setSelectedElement(newElement);
+
+      selectedElement = newElement;
+      await addGradientToNewClass();
+    } catch (error) {
+      appState = AppState.ERROR;
+      errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create new element with gradient.";
     }
   }
 
@@ -134,18 +125,24 @@
 
         console.log(stylesDetails);
 
-        const retrievedStyle = await webflow.getStyleByName(
-          stylesDetails[0].name,
-        );
-        if (!retrievedStyle) throw new Error("Primary style not found.");
+        if (stylesDetails.length === 0)
+          throw new Error(
+            "No styles found. Try: Add Gradient to the selected element.",
+          );
+        else {
+          const retrievedStyle = await webflow.getStyleByName(
+            stylesDetails[0].name,
+          );
+          if (!retrievedStyle) throw new Error("Primary style not found.");
 
-        await retrievedStyle.setProperty("background-image", gradientCss);
-        await retrievedStyle.save();
+          await retrievedStyle.setProperty("background-image", gradientCss);
+          await retrievedStyle.save();
 
-        appState = AppState.DONE;
-        setTimeout(() => {
-          appState = AppState.MAIN;
-        }, DONE_MESSAGE_TIMEOUT);
+          appState = AppState.DONE;
+          setTimeout(() => {
+            appState = AppState.MAIN;
+          }, DONE_MESSAGE_TIMEOUT);
+        }
       } catch (error) {
         appState = AppState.ERROR;
         errorMessage =
@@ -204,6 +201,29 @@
     throw new Error(
       "Unable to generate a unique style name. Too many existing styles.",
     );
+  }
+
+  async function createNewElementWithGradient() {
+    try {
+      const currentElement = await webflow.getSelectedElement();
+      if (!currentElement) {
+        throw new Error("Please select an element first.");
+      }
+
+      const newElement = await currentElement.after(
+        webflow.elementPresets.DivBlock,
+      );
+      await webflow.setSelectedElement(newElement);
+
+      selectedElement = newElement;
+      await addGradientToNewClass();
+    } catch (error) {
+      appState = AppState.ERROR;
+      errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create new element with gradient.";
+    }
   }
 
   function resetForm() {
@@ -346,7 +366,7 @@
             on:mouseleave={clearButtonMessage}
             disabled={isButtonDisabled}
           >
-          Add Gradient to a new custom element
+            Add Gradient to a new custom element
           </button>
         </div>
         {#if showButtonMessage}
