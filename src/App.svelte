@@ -6,33 +6,34 @@
     webflow.setExtensionSize({ height: 460, width: 380 });
   });
 
-  const shadowConfig = {
-    name: "shadow",
-    cssProperty: "box-shadow",
-    inputLabel: "Shadow CSS",
-    placeholderText: "3px 3px blue, -3px -3px red",
-    dontAddText: "box-shadow:",
-    validationRegex:
-      /^(-?\d+px\s+){2,4}(rgba?\([\d\s,\.]+\)|#[0-9A-Fa-f]{3,8}|\w+)$/,
-    ///^(?:(?:inset\s+)?(?:-?\d+(?:px|em|rem|vh|vw)?\s+){2,4}(?:[a-zA-Z]+(?:\([^)]*\))?|#[0-9a-fA-F]{3,8}))(?:\s*,\s*(?:(?:inset\s+)?(?:-?\d+(?:px|em|rem|vh|vw)?\s+){2,4}(?:[a-zA-Z]+(?:\([^)]*\))?|#[0-9a-fA-F]{3,8})))*\s*;?$/,
-  };
-
   const gradientConfig = {
     name: "gradient",
     cssProperty: "background-image",
     inputLabel: "Gradient CSS",
-    placeholderText: "linear-gradient(45deg, #ff0000, #00ff00)",
+    placeholderText: "background: linear-gradient(45deg, #ff0000, #00ff00)",
     dontAddText: "background:",
-    validationRegex: /^(linear|radial|conic)-gradient\(\s*(.+?)\s*\);?$/,
+    validationRegex:
+      /^(?:background|background-image)?\s*:\s*((?:linear|radial|conic)-gradient\((?:[^()]+|\([^()]*\))*\));?$/,
+  };
+
+  const shadowConfig = {
+    name: "shadow",
+    cssProperty: "box-shadow",
+    inputLabel: "Shadow CSS",
+    placeholderText: "box-shadow: 3px 3px blue, -3px -3px red",
+    dontAddText: "box-shadow:",
+    validationRegex:
+      /^box-shadow:\s*((?:(?:inset\s+)?-?\d+(?:\.\d+)?(?:px|em|rem|%)\s+-?\d+(?:\.\d+)?(?:px|em|rem|%)(?:\s+-?\d+(?:\.\d+)?(?:px|em|rem|%))?(?:\s+-?\d+(?:\.\d+)?(?:px|em|rem|%))?(?:\s+(?:rgb|rgba|hsl|hsla)\([^)]+\)|\s+#[0-9a-fA-F]{3,8}|\s+[a-zA-Z]+)?,?\s*)+);?$/,
   };
 
   const dropShadowConfig = {
     name: "Drop shadow",
     cssProperty: "filter",
     inputLabel: "Drop Shadow CSS",
-    placeholderText: "drop-shadow(#e23 0.5rem 0.5rem 1rem)",
+    placeholderText: "filter: drop-shadow(#e23 0.5rem 0.5rem 1rem)",
     dontAddText: "filter:",
-    validationRegex: /^drop-shadow\((?:[^()]+|\([^()]*\))*\);?$/,
+    validationRegex:
+      /^(?:filter:\s*)?drop-shadow\((?:[^()]+|\([^()]*\))*\)(?:\s*drop-shadow\((?:[^()]+|\([^()]*\))*\))*;?$/,
   };
 
   function handleReset() {

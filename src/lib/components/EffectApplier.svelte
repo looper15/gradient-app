@@ -83,6 +83,21 @@
     showButtonMessage = false;
   }
 
+  function extractStyleValue(input: string): string {
+    const propertyNames = [
+      "background:",
+      "background-image:",
+      "filter:",
+      "box-shadow:",
+    ];
+    for (const prop of propertyNames) {
+      if (input.startsWith(prop)) {
+        return input.slice(prop.length).trim();
+      }
+    }
+    return input.trim();
+  }
+
   async function handleSubmit(): Promise<WebflowElement | null> {
     appState = AppState.MAIN;
     errorMessage = "";
@@ -107,14 +122,15 @@
         return null;
       }
 
-      if (!effectConfig.validationRegex.test(cssInput.trim())) {
+      const styleValue = extractStyleValue(cssInput);
+      if (!effectConfig.validationRegex.test(cssInput)) {
         handleError(
           `Invalid ${effectConfig.inputLabel}. Please check your input and try again.`
         );
         return null;
       }
 
-      console.log(`Valid ${effectConfig.name}:`, cssInput);
+      console.log(`Valid ${effectConfig.name}:`, styleValue);
       return element as WebflowElement;
     } catch (error) {
       handleError(error);
@@ -157,7 +173,8 @@
       const primaryStyleName = await styles[0].getName();
       const primaryStyle = await webflow.getStyleByName(primaryStyleName);
 
-      await primaryStyle.setProperty(effectConfig.cssProperty, cssInput);
+      const styleValue = extractStyleValue(cssInput);
+      await primaryStyle.setProperty(effectConfig.cssProperty, styleValue);
 
       appState = AppState.DONE;
       donePageMessage = `Your ${effectConfig.name} has been applied to the primary class of the selected element`;
@@ -185,8 +202,9 @@
       if (selectedElement?.styles) {
         const newEffectName = await generateUniqueStyleName();
         const newStyle = await webflow.createStyle(newEffectName);
+        const styleValue = extractStyleValue(cssInput);
         newStyle.setProperties({
-          [effectConfig.cssProperty]: cssInput,
+          [effectConfig.cssProperty]: styleValue,
         });
 
         await selectedElement.setStyles([newStyle]);
@@ -301,9 +319,7 @@
             bind:value={cssInput}
           />
           <p class="text-text2 font-normal text-[11px] mb-2 relative z-1">
-            Don't add <span class="text-blue-300 italic"
-              >"{effectConfig.dontAddText}"</span
-            >
+            We dont validate the code so make sure to add valid CSS.
           </p>
         </div>
         <div class="flex flex-col gap-2">
