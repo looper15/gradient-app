@@ -1,389 +1,93 @@
 <script lang="ts">
   import { onMount } from "svelte";
-
-  enum AppState {
-    MAIN,
-    DONE,
-    ERROR,
-  }
-
-  interface WebflowElement {
-    styles: any[];
-    getStyles: () => Promise<any[]>;
-    setStyles: (styles: any[]) => Promise<void>;
-    save: () => Promise<void>;
-  }
-
-  interface WebflowStyle {
-    getName: () => Promise<string>;
-    setProperty: (property: string, value: string) => Promise<void>;
-    save: () => Promise<void>;
-  }
-
-  const DONE_MESSAGE_TIMEOUT = 10000;
-  const API_TIMEOUT = 10000; // 10 seconds timeout for API calls
-
-  let gradientCss = "";
-  let appState: AppState = AppState.MAIN;
-  let errorMessage = "";
-  let selectedElement: WebflowElement | null = null;
-  let donePageMessage = "Your gradient has been applied.";
-  let buttonMessage = "";
-  let showButtonMessage = false;
-  let messageTimeout: number | null = null;
-
-  $: isButtonDisabled = gradientCss.trim() === "";
+  import EffectApplier from "./lib/components/EffectApplier.svelte";
 
   onMount(() => {
-    webflow.setExtensionSize({ height: 440, width: 350 });
+    webflow.setExtensionSize({ height: 460, width: 380 });
   });
 
-  function buttonMessageToggle(message: string) {
-    if (messageTimeout) clearTimeout(messageTimeout);
-    showButtonMessage = true;
-    buttonMessage = message;
+  const shadowConfig = {
+    name: "shadow",
+    cssProperty: "box-shadow",
+    inputLabel: "Shadow CSS",
+    placeholderText: "3px 3px blue, -3px -3px red",
+    dontAddText: "box-shadow:",
+    validationRegex:
+      /^(-?\d+px\s+){2,4}(rgba?\([\d\s,\.]+\)|#[0-9A-Fa-f]{3,8}|\w+)$/,
+    ///^(?:(?:inset\s+)?(?:-?\d+(?:px|em|rem|vh|vw)?\s+){2,4}(?:[a-zA-Z]+(?:\([^)]*\))?|#[0-9a-fA-F]{3,8}))(?:\s*,\s*(?:(?:inset\s+)?(?:-?\d+(?:px|em|rem|vh|vw)?\s+){2,4}(?:[a-zA-Z]+(?:\([^)]*\))?|#[0-9a-fA-F]{3,8})))*\s*;?$/,
+  };
+
+  const gradientConfig = {
+    name: "gradient",
+    cssProperty: "background-image",
+    inputLabel: "Gradient CSS",
+    placeholderText: "linear-gradient(45deg, #ff0000, #00ff00)",
+    dontAddText: "background:",
+    validationRegex: /^(linear|radial|conic)-gradient\(\s*(.+?)\s*\);?$/,
+  };
+
+  const dropShadowConfig = {
+    name: "Drop shadow",
+    cssProperty: "filter",
+    inputLabel: "Drop Shadow CSS",
+    placeholderText: "drop-shadow(#e23 0.5rem 0.5rem 1rem)",
+    dontAddText: "filter:",
+    validationRegex: /^drop-shadow\((?:[^()]+|\([^()]*\))*\);?$/,
+  };
+
+  function handleReset() {
+    console.log("Effect form reset");
   }
 
-  function clearButtonMessage() {
-    if (messageTimeout) clearTimeout(messageTimeout);
-    showButtonMessage = false;
-  }
+  let activeTab = 0;
+  const tabs = [
+    {
+      title: "Add Gradient",
+      component: gradientConfig,
+      donePageMessage: "Your gradient has been applied.",
+    },
+    {
+      title: "Add Shadows",
+      component: shadowConfig,
+      donePageMessage: "Your shadow has been applied.",
+    },
+    {
+      title: "Add Drop-shadow",
+      component: dropShadowConfig,
+      donePageMessage: "Your drop shadow has been applied.",
+    },
+  ];
 
-  async function handleSubmit(): Promise<WebflowElement | null> {
-    appState = AppState.MAIN;
-    errorMessage = "";
-
-    try {
-      if (typeof webflow !== "undefined") {
-        selectedElement = (await Promise.race([
-          webflow.getSelectedElement(),
-          new Promise<null>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("API call timed out")),
-              API_TIMEOUT,
-            ),
-          ),
-        ])) as WebflowElement | null;
-      }
-
-      if (!selectedElement) {
-        throw new Error("Please select an element first.");
-      }
-
-      const gradientRegex = /^(linear|radial|conic)-gradient\(\s*(.+?)\s*\);?$/;
-      if (!gradientRegex.test(gradientCss.trim())) {
-        throw new Error(
-          "Invalid gradient CSS. Please check your input and try again.",
-        );
-      }
-
-      console.log("Valid gradient:", gradientCss);
-      return selectedElement;
-    } catch (error) {
-      appState = AppState.ERROR;
-      errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred.";
-      return null;
-    }
-  }
-
-  async function CreateNewElementWithGradient() {
-    try {
-      const currentElement = await webflow.getSelectedElement();
-      if (!currentElement) {
-        throw new Error("Please select an element first.");
-      }
-
-      const newElement = await currentElement.after(
-        webflow.elementPresets.DivBlock,
-      );
-      await webflow.setSelectedElement(newElement);
-
-      selectedElement = newElement;
-      await addGradientToNewClass();
-    } catch (error) {
-      appState = AppState.ERROR;
-      errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to create new element with gradient.";
-    }
-  }
-
-  async function addGradientToPrimaryClass() {
-    selectedElement = await handleSubmit();
-    if (!selectedElement) return;
-
-    if (selectedElement?.styles) {
-      try {
-        const styles = await selectedElement.getStyles();
-        const stylesDetails = await Promise.all(
-          styles.map(async (style: WebflowStyle) => ({
-            name: await style.getName(),
-          })),
-        );
-
-        console.log(stylesDetails);
-
-        if (stylesDetails.length === 0)
-          throw new Error(
-            "No styles found. Try: Add Gradient to the selected element.",
-          );
-        else {
-          const retrievedStyle = await webflow.getStyleByName(
-            stylesDetails[0].name,
-          );
-          if (!retrievedStyle) throw new Error("Primary style not found.");
-
-          await retrievedStyle.setProperty("background-image", gradientCss);
-          await retrievedStyle.save();
-
-          appState = AppState.DONE;
-          setTimeout(() => {
-            appState = AppState.MAIN;
-          }, DONE_MESSAGE_TIMEOUT);
-        }
-      } catch (error) {
-        appState = AppState.ERROR;
-        errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to add gradient to primary class.";
-      }
-    } else {
-      appState = AppState.ERROR;
-      errorMessage =
-        "Cannot add gradient to this element. It doesn't support styles.";
-    }
-  }
-
-  async function addGradientToNewClass() {
-    selectedElement = await handleSubmit();
-    if (!selectedElement) return;
-
-    if (selectedElement?.styles) {
-      try {
-        const newGradientName = await generateUniqueStyleName();
-        const newStyle = await webflow.createStyle(newGradientName);
-        newStyle.setProperties({
-          "background-image": gradientCss,
-        });
-
-        await selectedElement.setStyles([newStyle]);
-        await selectedElement.save();
-        appState = AppState.DONE;
-        setTimeout(() => {
-          appState = AppState.MAIN;
-        }, DONE_MESSAGE_TIMEOUT);
-      } catch (error) {
-        appState = AppState.ERROR;
-        errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to add gradient to new class.";
-      }
-    } else {
-      appState = AppState.ERROR;
-      errorMessage =
-        "Cannot add gradient to this element. It doesn't support styles.";
-    }
-  }
-
-  async function generateUniqueStyleName(): Promise<string> {
-    const MAX_ATTEMPTS = 1000;
-    for (let counter = 0; counter < MAX_ATTEMPTS; counter++) {
-      const styleName = `custom-gradient-${counter}`;
-      const retrievedStyle = await webflow.getStyleByName(styleName);
-      if (!retrievedStyle) {
-        return styleName;
-      }
-    }
-    throw new Error(
-      "Unable to generate a unique style name. Too many existing styles.",
-    );
-  }
-
-  async function createNewElementWithGradient() {
-    try {
-      const currentElement = await webflow.getSelectedElement();
-      if (!currentElement) {
-        throw new Error("Please select an element first.");
-      }
-
-      const newElement = await currentElement.after(
-        webflow.elementPresets.DivBlock,
-      );
-      await webflow.setSelectedElement(newElement);
-
-      selectedElement = newElement;
-      await addGradientToNewClass();
-    } catch (error) {
-      appState = AppState.ERROR;
-      errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to create new element with gradient.";
-    }
-  }
-
-  function resetForm() {
-    appState = AppState.MAIN;
-    gradientCss = "";
-    errorMessage = "";
-  }
-
-  // Action functions for Svelte custom elements
-  function textarea(node: HTMLTextAreaElement, props: Record<string, any>) {
-    function updateProps(props: Record<string, any>) {
-      Object.entries(props).forEach(([key, value]) => {
-        if (key === "value") {
-          node.value = value as string;
-        } else {
-          node.setAttribute(key, value as string);
-        }
-      });
-    }
-
-    updateProps(props);
-
-    return {
-      update(newProps: Record<string, any>) {
-        updateProps(newProps);
-      },
-    };
-  }
-
-  function button(node: HTMLButtonElement, props: Record<string, any>) {
-    function updateProps(props: Record<string, any>) {
-      Object.entries(props).forEach(([key, value]) => {
-        if (key === "disabled") {
-          node.disabled = value as boolean;
-        } else {
-          node.setAttribute(key, value as string);
-        }
-      });
-    }
-
-    updateProps(props);
-
-    return {
-      update(newProps: Record<string, any>) {
-        updateProps(newProps);
-      },
-    };
+  function setActiveTab(index) {
+    activeTab = index;
   }
 </script>
 
 <div
-  class="flex flex-col items-center justify-center min-h-[100%] bg-background1"
+  class="font-sans text-text1 bg-transparent rounded w-[460px] max-w-[100%] min-h-[100%]"
 >
-  <div class="w-[460px] max-w-[100%] min-h-[100%]">
-    {#if appState === AppState.DONE}
-      <div class="p-4 bg-background2 rounded shadow-menu h-full w-full">
-        <h2 class="text-3xl font-medium text-text1 mb-2">Done!</h2>
-        <p class="text-text2 mb-6">{donePageMessage}</p>
-        <button
-          class="text-[12px] font-weight-normal w-fit-content bg-actionPrimaryBackground hover:bg-actionPrimaryBackgroundHover text-actionPrimaryText font-medium py-2 px-3 rounded shadow-action-colored transition-colors"
-          on:click={resetForm}
-        >
-          Add More Gradients
-        </button>
-      </div>
-    {:else}
-      <div class="p-4 bg-background2 rounded shadow-menu h-full w-full">
-        <h1 class="text-2xl font-medium text-text1 mb-4">Gradient Generator</h1>
-        <div class="mb-2">
-          <label for="gradient-css" class="block text-text2 font-medium mb-2">
-            Paste your gradient CSS:
-          </label>
-          <textarea
-            use:textarea={{
-              id: "gradient-css",
-              value: gradientCss,
-              class:
-                "w-full border border-border1 bg-backgroundInput text-text1 rounded shadow-input-inner focus:border-actionPrimaryBackground focus:ring-1 focus:ring-actionPrimaryBackground p-2 min-h-[100px]",
-              rows: 4,
-              placeholder: "linear-gradient(to right, #4c51bf, #6b46c1)",
-              "aria-label": "Gradient CSS Input",
-            }}
-            bind:value={gradientCss}
-          />
-          <p class="text-text2 font-normal text-[11px] mb-2 relative z-1">
-            Don't add <span class="text-blue-300 italic">"background:"</span>
-            and
-            <span class="text-blue-300 italic">";"</span> at the end
-          </p>
-        </div>
-        <div class="flex flex-col gap-2">
-          <button
-            use:button={{
-              class:
-                "flex-1 bg-actionPrimaryBackground hover:bg-actionPrimaryBackgroundHover text-actionPrimaryText font-medium py-2 px-4 rounded shadow-action-colored transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-              disabled: isButtonDisabled,
-              "aria-label": "Add Gradient to all elements with same class",
-            }}
-            on:click={addGradientToPrimaryClass}
-            on:mouseenter={() =>
-              buttonMessageToggle(
-                "This will apply the gradient to all elements with the same primary class.",
-              )}
-            on:mouseleave={clearButtonMessage}
-            disabled={isButtonDisabled}
-          >
-            Add Gradient to all elements with same class
-          </button>
-
-          <button
-            use:button={{
-              class:
-                "flex-1 bg-actionPrimaryBackground hover:bg-actionPrimaryBackgroundHover text-actionPrimaryText font-medium py-2 px-4 rounded shadow-action-colored transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-              disabled: isButtonDisabled,
-              "aria-label": "Add Gradient to the selected element only",
-            }}
-            on:click={addGradientToNewClass}
-            on:mouseenter={() =>
-              buttonMessageToggle(
-                "This will create a new class for the selected element.",
-              )}
-            on:mouseleave={clearButtonMessage}
-            disabled={isButtonDisabled}
-          >
-            Add Gradient to the selected element only
-          </button>
-
-          <button
-            use:button={{
-              class:
-                "flex-1 bg-actionPrimaryBackground hover:bg-actionPrimaryBackgroundHover text-actionPrimaryText font-medium py-2 px-4 rounded shadow-action-colored transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-              disabled: isButtonDisabled,
-              "aria-label": "Add Gradient to a new custom element",
-            }}
-            on:click={CreateNewElementWithGradient}
-            on:mouseenter={() =>
-              buttonMessageToggle(
-                "This will create a new element and apply the gradient to it.",
-              )}
-            on:mouseleave={clearButtonMessage}
-            disabled={isButtonDisabled}
-          >
-            Add Gradient to a new custom element
-          </button>
-        </div>
-        {#if showButtonMessage}
-          <div class="mt-2 text-text2 font-normal text-[11px]">
-            {buttonMessage}
-          </div>
-        {/if}
-        {#if appState === AppState.ERROR}
-          <div
-            class="mt-4 p-2 border-1 border-red-300 bg-red-200/10 text-red-300 rounded"
-            role="alert"
-          >
-            {errorMessage}
-          </div>
-        {/if}
-      </div>
-    {/if}
+  <div class="flex border-b border-border1">
+    {#each tabs as tab, index}
+      <button
+        class="px-4 py-3 flex-grow text-large font-medium focus:outline-none transition-colors duration-200 ease-in-out"
+        class:text-text1={activeTab === index}
+        class:text-textInactive={activeTab !== index}
+        class:bg-background2={activeTab === index}
+        class:bg-backgroundInactive={activeTab !== index}
+        class:border-b-2={activeTab === index}
+        class:border-actionPrimaryBackground={activeTab === index}
+        on:click={() => setActiveTab(index)}
+      >
+        {tab.title}
+      </button>
+    {/each}
+  </div>
+  <div class="p-4 bg-[#353535]">
+    <EffectApplier
+      effectConfig={tabs[activeTab].component}
+      donePageMessage={tabs[activeTab].donePageMessage}
+      on:reset={handleReset}
+    />
   </div>
 </div>
 

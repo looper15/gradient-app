@@ -20,6 +20,12 @@
     "vite": "^5.4.1"
   },
   "dependencies": {
-    "@svelte-plugins/tooltips": "^3.0.1"
+    "@babel/runtime": "^7.25.6",
+    "@codemirror/commands": "^6.6.1",
+    "@codemirror/lang-css": "^6.3.0",
+    "@codemirror/view": "^6.33.0",
+    "@svelte-plugins/tooltips": "^3.0.1",
+    "@uiw/codemirror-theme-dracula": "^4.23.2",
+    "codemirror": "^6.0.1"
   }
 }
